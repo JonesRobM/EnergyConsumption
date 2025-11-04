@@ -1,0 +1,48 @@
+# Core data science libraries
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+scipy>=1.10.0,<2.0.0
+
+# Visualization
+matplotlib>=3.7.0,<4.0.0
+seaborn>=0.12.0,<1.0.0
+plotly>=5.14.0,<6.0.0
+
+# Traditional Machine Learning (Shallow Learning)
+scikit-learn>=1.3.0,<2.0.0
+xgboost>=2.0.0,<3.0.0
+lightgbm>=4.0.0,<5.0.0
+catboost>=1.2.0,<2.0.0
+
+# Deep Learning Frameworks
+tensorflow>=2.15.0,<3.0.0
+torch>=2.1.0,<3.0.0
+torchvision>=0.16.0,<1.0.0
+pytorch-lightning>=2.1.0,<2.5.0  # Pin to <2.5.0 for compatibility with pytorch-forecasting 1.5.0
+
+# Time Series Forecasting with Deep Learning
+pytorch-forecasting>=1.0.0
+
+# Jupyter and Interactive Computing
+jupyter>=1.0.0
+ipykernel>=6.25.0
+ipywidgets>=8.1.0
+notebook>=7.0.0
+
+# Kaggle API
+kaggle>=1.5.0
+
+# Data Processing Utilities
+openpyxl>=3.1.0
+xlrd>=2.0.0
+statsmodels>=0.14.0
+
+# Progress Bars and Utilities
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+
+# Development Tools (optional - uncomment if needed)
+# pytest>=7.4.0
+# black>=23.7.0
+# ruff>=0.0.285
+# mypy>=1.5.0
