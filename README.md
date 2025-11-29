@@ -82,7 +82,9 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### 1. Open the Main Notebook
+You have **two options** for running the analysis:
+
+### Option 1: Jupyter Notebook (Interactive Exploration)
 ```bash
 jupyter notebook exploration.ipynb
 ```
@@ -112,7 +114,34 @@ The `exploration.ipynb` notebook contains the complete analysis pipeline:
 - Future inference (7-day forecasting)
 - Interpretability analysis (attention weights, variable importance)
 
-### 2. Alternative: Download Dataset Separately
+### Option 2: Standalone Scripts (Automated Training/Testing)
+
+**NEW**: Train and test TFT models with standalone Python scripts!
+
+#### 1. Train a TFT model
+```bash
+python train_tft.py --mode train --epochs 50
+```
+
+#### 2. Test an existing model
+```bash
+python train_tft.py --mode test --checkpoint checkpoints/tft-epoch=20-val_loss=0.45.ckpt
+```
+
+#### 3. Make predictions with visualizations
+```bash
+python predict_tft.py --checkpoint checkpoints/tft-epoch=20-val_loss=0.45.ckpt --n_samples 10
+```
+
+#### 4. Monitor training with TensorBoard
+```bash
+tensorboard --logdir lightning_logs
+# Open http://localhost:6006
+```
+
+**See [TFT_GUIDE.md](TFT_GUIDE.md) for complete usage instructions and hyperparameter tuning.**
+
+### Alternative: Download Dataset Separately
 ```bash
 kaggle datasets download -d robikscube/hourly-energy-consumption
 ```
@@ -152,16 +181,21 @@ kaggle datasets download -d robikscube/hourly-energy-consumption
 
 ```
 EnergyConsumption/
-├── exploration.ipynb        # Main analysis notebook (complete pipeline)
-├── composite_energy_data.csv  # Processed dataset (auto-generated)
-├── requirements.txt         # Project dependencies
-├── pyproject.toml           # Project configuration and metadata
-├── CLAUDE.md                # Development guide for AI assistants
-├── README.md                # This file
-├── LICENSE                  # MIT License
-├── .gitignore               # Git ignore patterns
-├── .venv/                   # Virtual environment (local)
-└── lightning_logs/          # TFT training logs (auto-generated)
+├── exploration.ipynb           # Main analysis notebook (complete pipeline)
+├── train_tft.py                # Standalone TFT training/testing script
+├── predict_tft.py              # TFT prediction and visualization script
+├── composite_energy_data.csv   # Processed dataset (auto-generated)
+├── requirements.txt            # Project dependencies
+├── pyproject.toml              # Project configuration and metadata
+├── TFT_GUIDE.md                # Complete TFT training guide
+├── CLAUDE.md                   # Development guide for Claude Code
+├── GEMINI.md                   # Project status guide for Gemini
+├── README.md                   # This file
+├── LICENSE                     # MIT License
+├── .gitignore                  # Git ignore patterns
+├── .venv/                      # Virtual environment (local)
+├── checkpoints/                # Trained model checkpoints (auto-generated)
+└── lightning_logs/             # TFT training logs (auto-generated)
 ```
 
 ### Main Notebook Sections
@@ -226,7 +260,47 @@ The project implements multiple modeling approaches with varying levels of compl
 
 ## Usage
 
-See [CLAUDE.md](CLAUDE.md) for detailed development instructions and common commands.
+### Training TFT Models
+
+#### Quick Start
+```bash
+# Train with defaults (50 epochs, ~30-50 min on CPU)
+python train_tft.py --mode train_test
+
+# Quick test run (5 epochs, ~5-10 min)
+python train_tft.py --epochs 5
+```
+
+#### Custom Hyperparameters
+```bash
+# Larger model
+python train_tft.py --hidden_size 128 --attention_heads 8 --epochs 100
+
+# Different region
+python train_tft.py --region AEP_MW --epochs 50
+
+# Custom batch size (reduce if OOM errors)
+python train_tft.py --batch_size 32
+```
+
+#### Making Predictions
+```bash
+# Generate prediction plots
+python predict_tft.py --checkpoint checkpoints/tft-epoch=20-val_loss=0.45.ckpt --n_samples 10
+
+# This creates prediction_sample_1.png, prediction_sample_2.png, etc.
+```
+
+### Expected Performance (PJME Region)
+- **Training Time**: 20-30 min (50 epochs, CPU) | 10-15 min (GPU)
+- **RMSE**: 500-1500 MW on 24-hour forecast horizon
+- **MAE**: 300-1000 MW
+- **MAPE**: 2-5%
+
+### Documentation
+- **[TFT_GUIDE.md](TFT_GUIDE.md)**: Complete TFT training guide with troubleshooting
+- **[CLAUDE.md](CLAUDE.md)**: Development instructions and technical details
+- **[GEMINI.md](GEMINI.md)**: Project status, challenges, and future directions
 
 ## Contributing
 
