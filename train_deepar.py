@@ -1,11 +1,11 @@
 """
-Standalone script to train and test Temporal Fusion Transformer (TFT)
+Standalone script to train and test DeepAR
 for energy consumption forecasting.
 
 Usage:
-    python train_tft.py --mode train          # Train new model
-    python train_tft.py --mode test           # Test existing model
-    python train_tft.py --mode train_test     # Train and test
+    python train_deepar.py --mode train          # Train new model
+    python train_deepar.py --mode test           # Test existing model
+    python train train_deepar.py --mode train_test     # Train and test
 """
 
 import argparse
@@ -17,9 +17,9 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import PyTorch Forecasting
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+from pytorch_forecasting import TimeSeriesDataSet, DeepAR
 from pytorch_forecasting.data import GroupNormalizer
-from pytorch_forecasting.metrics import QuantileLoss
+from pytorch_forecasting.metrics import MAE # DeepAR uses MAE typically with loss being negative log-likelihood
 
 # Import Lightning (new namespace)
 try:
@@ -33,12 +33,12 @@ except ImportError:
     from pytorch_lightning.loggers import TensorBoardLogger
 
 print("=" * 80)
-print("TFT Energy Consumption Forecasting - Training & Testing Script")
+print("DeepAR Energy Consumption Forecasting - Training & Testing Script")
 print("=" * 80)
 
 
 def load_and_prepare_data(data_path='composite_energy_data.csv', region='PJME_MW'):
-    """Load and prepare energy consumption data for TFT."""
+    """Load and prepare energy consumption data for DeepAR."""
 
     print(f"\n[1/6] Loading data from {data_path}...")
     df = pd.read_csv(data_path)
@@ -163,38 +163,36 @@ def create_datasets(df, encoder_length=168, prediction_length=24,
     return training, validation, test
 
 
-def create_model(training_dataset, hidden_size=64, attention_heads=4,
+def create_model(training_dataset, hidden_size=64, rnn_layers=2,
                  dropout=0.1, learning_rate=0.001):
-    """Create TFT model from dataset."""
+    """Create DeepAR model from dataset."""
 
-    print(f"\n[4/6] Creating TFT model...")
+    print(f"\n[4/6] Creating DeepAR model...")
     print(f"   Hidden size: {hidden_size}")
-    print(f"   Attention heads: {attention_heads}")
+    print(f"   RNN layers: {rnn_layers}")
     print(f"   Dropout: {dropout}")
     print(f"   Learning rate: {learning_rate}")
 
-    tft = TemporalFusionTransformer.from_dataset(
+    deepar = DeepAR.from_dataset(
         training_dataset,
         learning_rate=learning_rate,
         hidden_size=hidden_size,
-        attention_head_size=attention_heads,
+        rnn_layers=rnn_layers,
         dropout=dropout,
-        hidden_continuous_size=hidden_size // 2,
-        loss=QuantileLoss(),
         log_interval=10,
+        log_metrics=True,
         reduce_on_plateau_patience=4,
     )
 
-    total_params = sum(p.numel() for p in tft.parameters())
-    trainable_params = sum(p.numel() for p in tft.parameters() if p.requires_grad)
+    total_params = sum(p.numel() for p in deepar.parameters())
+    trainable_params = sum(p.numel() for p in deepar.parameters() if p.requires_grad)
 
     print(f"   ✓ Model created: {total_params:,} parameters ({trainable_params:,} trainable)")
 
-    return tft
+    return deepar
 
-
-def train_model(tft, training, validation, max_epochs=50, batch_size=64):
-    """Train TFT model with PyTorch Lightning."""
+def train_model(deepar, training, validation, max_epochs=50, batch_size=64):
+    """Train DeepAR model with PyTorch Lightning."""
 
     print(f"\n[5/6] Training model...")
     print(f"   Max epochs: {max_epochs}")
@@ -220,14 +218,14 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
 
     checkpoint = ModelCheckpoint(
         dirpath='checkpoints',
-        filename='tft-{epoch:02d}-{val_loss:.2f}',
+        filename='deepar-{epoch:02d}-{val_loss:.2f}',
         monitor='val_loss',
         mode='min',
         save_top_k=3,
     )
 
     # Logger
-    logger = TensorBoardLogger("lightning_logs", name="tft_energy")
+    logger = TensorBoardLogger("lightning_logs", name="deepar_energy")
 
     # Trainer
     trainer = Trainer(
@@ -244,7 +242,7 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
     print("\n   Starting training...")
     print("   " + "-" * 60)
     trainer.fit(
-        tft,
+        deepar,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
@@ -254,19 +252,26 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
 
     return trainer, checkpoint.best_model_path
 
-
-def test_model(model_path, test_dataset, training_dataset):
-    """Test TFT model on test set."""
+def test_model(model_path, test_dataset, training_dataset,
+               hidden_size=64, rnn_layers=2):
+    """Test DeepAR model on test set."""
 
     print(f"\n[6/6] Testing model...")
     print(f"   Loading from: {model_path}")
 
-    # Hotfix for PyTorch 2.6+ unpickling security change
-    # see: https://github.com/Lightning-AI/pytorch-lightning/issues/20261
-    torch.serialization.add_safe_globals([GroupNormalizer, pd.DataFrame])
+    # Manually load checkpoint with weights_only=False
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
 
-    # Load best model
-    best_tft = TemporalFusionTransformer.load_from_checkpoint(model_path)
+    # Re-initialize the model
+    deepar = create_model(
+        training_dataset,
+        hidden_size=hidden_size,
+        rnn_layers=rnn_layers
+    )
+
+    # Load the state_dict into the initialized model
+    deepar.load_state_dict(checkpoint["state_dict"])
+    deepar.eval() # Set to evaluation mode
 
     # Create test dataloader
     test_dataloader = test_dataset.to_dataloader(
@@ -275,26 +280,25 @@ def test_model(model_path, test_dataset, training_dataset):
 
     # Evaluate
     trainer = Trainer(accelerator="auto", devices=1)
-    test_results = trainer.test(best_tft, dataloaders=test_dataloader, verbose=False)
+    test_results = trainer.test(deepar, dataloaders=test_dataloader, verbose=False)
 
     print("\n   Test Results:")
     print("   " + "-" * 60)
     for key, value in test_results[0].items():
         print(f"   {key:30s}: {value:.4f}")
 
-    # Make predictions on a few examples
-    print("\n   Making sample predictions...")
-    predictions = best_tft.predict(
-        test_dataloader, mode="prediction", return_x=True, trainer_kwargs=dict(accelerator="auto")
+    # Make predictions (DeepAR provides quantiles)
+    print("\n   Making sample predictions (DeepAR provides quantiles)...")
+    predictions = deepar.predict(
+        test_dataloader, mode="quantiles", return_x=True, trainer_kwargs=dict(accelerator="auto")
     )
 
     print(f"   ✓ Generated {len(predictions.output)} predictions")
 
     return test_results, predictions
 
-
 def main():
-    parser = argparse.ArgumentParser(description='Train/Test TFT for energy forecasting')
+    parser = argparse.ArgumentParser(description='Train/Test DeepAR for energy forecasting')
     parser.add_argument('--mode', type=str, default='train_test',
                         choices=['train', 'test', 'train_test'],
                         help='Mode: train, test, or train_test')
@@ -307,9 +311,13 @@ def main():
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size')
     parser.add_argument('--hidden_size', type=int, default=64,
-                        help='Hidden size')
-    parser.add_argument('--attention_heads', type=int, default=4,
-                        help='Number of attention heads')
+                        help='Hidden size of RNN layers')
+    parser.add_argument('--rnn_layers', type=int, default=2,
+                        help='Number of RNN layers')
+    parser.add_argument('--dropout', type=float, default=0.1,
+                        help='Dropout rate')
+    parser.add_argument('--learning_rate', type=float, default=0.001,
+                        help='Learning rate')
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='Checkpoint path for testing')
 
@@ -329,14 +337,16 @@ def main():
 
     if args.mode in ['train', 'train_test']:
         # Create and train model
-        tft = create_model(
+        deepar_model = create_model(
             training,
             hidden_size=args.hidden_size,
-            attention_heads=args.attention_heads
+            rnn_layers=args.rnn_layers,
+            dropout=args.dropout,
+            learning_rate=args.learning_rate
         )
 
         trainer, best_model_path = train_model(
-            tft, training, validation,
+            deepar_model, training, validation,
             max_epochs=args.epochs,
             batch_size=args.batch_size
         )
@@ -353,7 +363,11 @@ def main():
             checkpoint_path = args.checkpoint
 
         # Test model
-        test_results, predictions = test_model(checkpoint_path, test, training)
+        test_results, predictions = test_model(
+            checkpoint_path, test, training,
+            hidden_size=args.hidden_size,
+            rnn_layers=args.rnn_layers
+        )
 
     print("\n" + "=" * 80)
     print("✓ Complete!")

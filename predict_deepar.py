@@ -1,21 +1,19 @@
 """
-Simple script to make predictions using a trained TFT model.
+Simple script to make predictions using a trained DeepAR model.
 
 Usage:
-    python predict_tft.py --checkpoint checkpoints/tft-epoch=15-val_loss=0.45.ckpt
+    python predict_deepar.py --checkpoint checkpoints/deepar-epoch=15-val_loss=0.45.ckpt
 """
 
-import argparse
-import pandas as pd
 import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-import torch # Added missing import
+import torch
 
-from pytorch_forecasting import TemporalFusionTransformer
-from train_tft import load_and_prepare_data, create_datasets, create_model
+from pytorch_forecasting import DeepAR
+from train_deepar import load_and_prepare_data, create_datasets, create_model
 
 
 def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=5, save_plots=True):
@@ -24,41 +22,39 @@ def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=
     print(f"Loading model from: {checkpoint_path}")
 
     # Manually load checkpoint with weights_only=False
-    # This bypasses the problematic pytorch_lightning load_from_checkpoint for compatibility
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
     # Extract hyperparameters from checkpoint
     hparams = checkpoint["hyper_parameters"]
 
     # Re-initialize the model with the same architecture parameters
-    best_tft = create_model(
-        training_dataset, # Use the passed argument
+    deepar_model = create_model(
+        training_dataset,
         hidden_size=hparams["hidden_size"],
-        attention_heads=hparams["attention_head_size"], # Use 'attention_head_size' from hparams
+        rnn_layers=hparams["rnn_layers"],
         dropout=hparams["dropout"],
         learning_rate=hparams["learning_rate"]
     )
 
     # Load the state_dict into the initialized model
-    best_tft.load_state_dict(checkpoint["state_dict"])
-    best_tft.eval() # Set to evaluation mode
+    deepar_model.load_state_dict(checkpoint["state_dict"])
+    deepar_model.eval() # Set to evaluation mode
 
     # Create test dataloader
     test_dataloader = test_dataset.to_dataloader(train=False, batch_size=128, num_workers=0)
 
     # Make predictions
     print(f"Making predictions on {len(test_dataset)} test samples...")
-    # Use mode="raw" to get detailed outputs for plotting and interpretation
-    predictions = best_tft.predict(
+    # DeepAR provides quantile predictions
+    predictions = deepar_model.predict(
         test_dataloader,
-        mode="raw",
+        mode="quantiles", # DeepAR provides quantiles
         return_x=True,
         return_y=True,
     )
 
     # Extract results
-    raw_predictions = predictions.output  # This is a dictionary of raw outputs (prediction, attention, etc.)
-    pred_output_quantiles = raw_predictions['prediction'] # The actual predicted quantiles
+    pred_output_quantiles = predictions.output  # The actual predicted quantiles
     pred_x = predictions.x  # x_data used for predictions
     pred_y = predictions.y  # Actual values
 
@@ -69,37 +65,9 @@ def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=
 
 
     if save_plots:
-        # Plotting variable importances
-        print("\nPlotting variable importances...")
-        try:
-            # We need to pick a single sample's x data and raw_predictions for interpret_output
-            # Let's get a sample from the first batch
-            first_batch_x, _ = next(iter(test_dataloader))
-            first_batch_raw_predictions = best_tft.predict(first_batch_x, mode="raw")
-
-            # Get interpretation for the first sample in the first batch
-            sample_idx_for_interpretation = 0
-            single_sample_raw_predictions = {
-                key: value[sample_idx_for_interpretation].unsqueeze(0) if isinstance(value, torch.Tensor) else value
-                for key, value in first_batch_raw_predictions.items()
-            }
-            single_sample_x = {
-                key: value[sample_idx_for_interpretation].unsqueeze(0) if isinstance(value, torch.Tensor) else value
-                for key, value in first_batch_x.items()
-            }
-
-            interpretation = best_tft.interpret_output(single_sample_raw_predictions, single_sample_x)
-            fig_importance = best_tft.plot_interpretation(interpretation)
-            fig_importance.savefig('variable_importances.png', dpi=150, bbox_inches='tight')
-            print("  ✓ Saved: variable_importances.png")
-            plt.close(fig_importance)
-        except Exception as e:
-            print(f"  ✗ Could not plot variable importances: {e}")
-
-
-        # Plot random samples using built-in method
+        # DeepAR does not have variable importance plotting like TFT
+        # Plot random samples manually
         print(f"\nPlotting {n_samples} random samples...")
-        
         
         # Determine the index of the target variable in the 'encoder_cont' tensor
         target_name = training_dataset.target_names[0]
@@ -109,10 +77,7 @@ def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=
             idx = np.random.randint(0, pred_output_quantiles.shape[0]) # Random index within the batch
 
             # Get encoder and prediction
-            # encoder_data from pred_x['encoder_cont'] needs to be extracted correctly for 'idx'
-            # pred_x['encoder_cont'] is shape [batch_size, encoder_length, num_encoder_reals]
             encoder_data = pred_x['encoder_cont'][idx, :, target_idx_in_reals].cpu().numpy() # Extract target from encoder
-
             actual = pred_y[0][idx].cpu().numpy() # Actuals for prediction horizon
 
             pred_median = pred_output_quantiles[idx, :, pred_output_quantiles.shape[2] // 2].cpu().numpy()  # Median
@@ -143,14 +108,12 @@ def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=
             ax.grid(True, alpha=0.3)
 
             plt.tight_layout()
-            output_file = f'prediction_sample_{i+1}.png'
+            output_file = f'deepar_prediction_sample_{i+1}.png'
             plt.savefig(output_file, dpi=150, bbox_inches='tight')
             print(f"  ✓ Saved: {output_file}")
             plt.close()
 
     # Calculate metrics
-    # pred_output_quantiles contains quantiles, so we need to pick the median (e.g., 50th percentile)
-    # The quantiles are usually sorted, so the median is at index n_quantiles // 2
     median_idx = pred_output_quantiles.shape[2] // 2
     preds_flat = pred_output_quantiles[:, :, median_idx].cpu().numpy().flatten()
     actuals_flat = pred_y[0].cpu().numpy().flatten() # pred_y[0] should be the actuals tensor
@@ -162,8 +125,6 @@ def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=
     })
 
     # Extract hour and dayofweek for each predicted step
-    # pred_x['decoder_cat'] has shape [batch_size, prediction_length, num_decoder_categoricals]
-    # We use the order defined in train_tft.py: time_varying_known_categoricals=["hour", "dayofweek", "month"]
     decoder_hours = pred_x['decoder_cat'][:, :, 0].cpu().numpy().flatten()
     decoder_dayofweek = pred_x['decoder_cat'][:, :, 1].cpu().numpy().flatten()
 
@@ -189,13 +150,9 @@ def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=
 
     # Calculate Prediction Interval Coverage Error (PICE)
     if pred_output_quantiles.shape[2] > 2: # Check if quantiles are available (at least 3 for 10, 50, 90)
-        # Assuming quantiles are sorted: 10th percentile is index 0, 90th percentile is index -1 (or 6 for 7 quantiles)
         q_10 = pred_output_quantiles[:, :, 0].cpu().numpy().flatten()
         q_90 = pred_output_quantiles[:, :, -1].cpu().numpy().flatten() # Assuming 7 quantiles, -1 is 90th
 
-        actuals_flat = pred_y[0].cpu().numpy().flatten()
-
-        # Count how many actuals fall within the 10-90 interval
         in_interval = ((actuals_flat >= q_10) & (actuals_flat <= q_90)).sum()
         total_predictions = actuals_flat.shape[0]
         pice = (in_interval / total_predictions) * 100
@@ -234,7 +191,7 @@ def make_predictions(checkpoint_path, training_dataset, test_dataset, n_samples=
     print("\nMetrics by Day of Week (0=Monday, 6=Sunday):")
     dayofweek_metrics = results_df.groupby('dayofweek').apply(calculate_group_metrics)
     print(dayofweek_metrics.to_string())
-    print("=" * 60)
+    print("=" * 60) # Re-add separator
 
     return predictions
 
@@ -245,33 +202,13 @@ def predict_future(checkpoint_path, n_days=7):
     print(f"\nMaking {n_days}-day future forecast...")
 
     # Load model
-    best_tft = TemporalFusionTransformer.load_from_checkpoint(checkpoint_path)
-
-    # Load most recent data
-    df = load_and_prepare_data()
-
-    # Take last 168 hours as encoder context
-    encoder_length = 168
-    prediction_length = 24
-
-    recent_data = df.tail(encoder_length + prediction_length).copy()
-
-    print(f"Using data from {recent_data['Datetime'].min()} to {recent_data['Datetime'].max()}")
-
-    # For true future prediction, you'd extend the dataframe with future timesteps
-    # and provide known features (hour, month, etc.) but leave unknowns as NaN
-
-    # This is a simplified example - full implementation would require
-    # iterative prediction for multi-day forecasts
-
-    print("Note: Full future prediction requires iterative forecasting.")
-    print("See exploration.ipynb for complete implementation.")
-
+    # DeepAR does not have load_from_checkpoint. We need to re-initialize and load state_dict.
+    # For now, this is a placeholder. Future prediction is complex and usually involves iterative forecasting.
+    print("Note: Full future prediction is not yet implemented for DeepAR.")
     return None
 
-
 def main():
-    parser = argparse.ArgumentParser(description='Make predictions with trained TFT')
+    parser = argparse.ArgumentParser(description='Make predictions with trained DeepAR')
     parser.add_argument('--checkpoint', type=str, required=True,
                         help='Path to model checkpoint')
     parser.add_argument('--n_samples', type=int, default=5,
@@ -294,7 +231,7 @@ def main():
     if args.future:
         predict_future(args.checkpoint)
     else:
-        make_predictions(args.checkpoint, training, test, n_samples=args.n_samples) # training is now defined here
+        make_predictions(args.checkpoint, training, test, n_samples=args.n_samples)
 
 
 if __name__ == "__main__":

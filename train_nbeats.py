@@ -1,11 +1,11 @@
 """
-Standalone script to train and test Temporal Fusion Transformer (TFT)
+Standalone script to train and test N-BEATS
 for energy consumption forecasting.
 
 Usage:
-    python train_tft.py --mode train          # Train new model
-    python train_tft.py --mode test           # Test existing model
-    python train_tft.py --mode train_test     # Train and test
+    python train_nbeats.py --mode train          # Train new model
+    python train_nbeats.py --mode test           # Test existing model
+    python train_nbeats.py --mode train_test     # Train and test
 """
 
 import argparse
@@ -17,9 +17,9 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import PyTorch Forecasting
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+from pytorch_forecasting import TimeSeriesDataSet, NBeats
 from pytorch_forecasting.data import GroupNormalizer
-from pytorch_forecasting.metrics import QuantileLoss
+from pytorch_forecasting.metrics import MAE # N-BEATS typically uses MAE or MSE
 
 # Import Lightning (new namespace)
 try:
@@ -33,12 +33,12 @@ except ImportError:
     from pytorch_lightning.loggers import TensorBoardLogger
 
 print("=" * 80)
-print("TFT Energy Consumption Forecasting - Training & Testing Script")
+print("N-BEATS Energy Consumption Forecasting - Training & Testing Script")
 print("=" * 80)
 
 
 def load_and_prepare_data(data_path='composite_energy_data.csv', region='PJME_MW'):
-    """Load and prepare energy consumption data for TFT."""
+    """Load and prepare energy consumption data for N-BEATS."""
 
     print(f"\n[1/6] Loading data from {data_path}...")
     df = pd.read_csv(data_path)
@@ -63,7 +63,7 @@ def load_and_prepare_data(data_path='composite_energy_data.csv', region='PJME_MW
     df_region['dayofweek'] = df_region['dayofweek'].astype(str)
     df_region['month'] = df_region['month'].astype(str)
 
-    # Cyclical encodings
+    # Cyclical encodings (N-BEATS might not use these directly as covariates, but we keep for consistency)
     df_region['hour_sin'] = np.sin(2 * np.pi * df_region['hour'].astype(int) / 24)
     df_region['hour_cos'] = np.cos(2 * np.pi * df_region['hour'].astype(int) / 24)
     df_region['month_sin'] = np.sin(2 * np.pi * df_region['month'].astype(int) / 12)
@@ -122,6 +122,8 @@ def create_datasets(df, encoder_length=168, prediction_length=24,
         max_encoder_length=encoder_length,
         max_prediction_length=prediction_length,
 
+        # N-BEATS can handle covariates, but often performs well on univariate data directly.
+        # We can simplify this for a pure N-BEATS if needed, but keeping for consistency.
         # Static features (constant for all timesteps)
         static_categoricals=["series_id"],
 
@@ -133,6 +135,7 @@ def create_datasets(df, encoder_length=168, prediction_length=24,
         ],
 
         # Time-varying unknown features (only available until present)
+        # N-BEATS usually takes target lags as inputs directly.
         time_varying_unknown_reals=[
             "energy", "lag_24", "lag_168",
             "rolling_mean_24", "rolling_mean_168"
@@ -163,38 +166,42 @@ def create_datasets(df, encoder_length=168, prediction_length=24,
     return training, validation, test
 
 
-def create_model(training_dataset, hidden_size=64, attention_heads=4,
+def create_model(training_dataset, stack_types=["seasonality", "trend", "identity"],
+                 num_blocks=[3, 3, 3], num_layers=[4, 4, 4], widths=[256, 256, 256],
                  dropout=0.1, learning_rate=0.001):
-    """Create TFT model from dataset."""
+    """Create N-BEATS model from dataset."""
 
-    print(f"\n[4/6] Creating TFT model...")
-    print(f"   Hidden size: {hidden_size}")
-    print(f"   Attention heads: {attention_heads}")
+    print(f"\n[4/6] Creating N-BEATS model...")
+    print(f"   Stack types: {stack_types}")
+    print(f"   Num blocks: {num_blocks}")
+    print(f"   Num layers: {num_layers}")
+    print(f"   Widths: {widths}")
     print(f"   Dropout: {dropout}")
     print(f"   Learning rate: {learning_rate}")
 
-    tft = TemporalFusionTransformer.from_dataset(
+    nbeats = NBeats.from_dataset(
         training_dataset,
-        learning_rate=learning_rate,
-        hidden_size=hidden_size,
-        attention_head_size=attention_heads,
+        stack_types=stack_types,
+        num_blocks=num_blocks,
+        num_layers=num_layers,
+        widths=widths,
         dropout=dropout,
-        hidden_continuous_size=hidden_size // 2,
-        loss=QuantileLoss(),
+        learning_rate=learning_rate,
         log_interval=10,
+        log_metrics=True,
         reduce_on_plateau_patience=4,
     )
 
-    total_params = sum(p.numel() for p in tft.parameters())
-    trainable_params = sum(p.numel() for p in tft.parameters() if p.requires_grad)
+    total_params = sum(p.numel() for p in nbeats.parameters())
+    trainable_params = sum(p.numel() for p in nbeats.parameters() if p.requires_grad)
 
     print(f"   ✓ Model created: {total_params:,} parameters ({trainable_params:,} trainable)")
 
-    return tft
+    return nbeats
 
 
-def train_model(tft, training, validation, max_epochs=50, batch_size=64):
-    """Train TFT model with PyTorch Lightning."""
+def train_model(nbeats, training, validation, max_epochs=50, batch_size=64):
+    """Train N-BEATS model with PyTorch Lightning."""
 
     print(f"\n[5/6] Training model...")
     print(f"   Max epochs: {max_epochs}")
@@ -220,14 +227,14 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
 
     checkpoint = ModelCheckpoint(
         dirpath='checkpoints',
-        filename='tft-{epoch:02d}-{val_loss:.2f}',
+        filename='nbeats-{epoch:02d}-{val_loss:.2f}',
         monitor='val_loss',
         mode='min',
         save_top_k=3,
     )
 
     # Logger
-    logger = TensorBoardLogger("lightning_logs", name="tft_energy")
+    logger = TensorBoardLogger("lightning_logs", name="nbeats_energy")
 
     # Trainer
     trainer = Trainer(
@@ -244,7 +251,7 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
     print("\n   Starting training...")
     print("   " + "-" * 60)
     trainer.fit(
-        tft,
+        nbeats,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
@@ -255,18 +262,29 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
     return trainer, checkpoint.best_model_path
 
 
-def test_model(model_path, test_dataset, training_dataset):
-    """Test TFT model on test set."""
+def test_model(model_path, test_dataset, training_dataset,
+               stack_types=["seasonality", "trend", "identity"],
+               num_blocks=[3, 3, 3], num_layers=[4, 4, 4], widths=[256, 256, 256]):
+    """Test N-BEATS model on test set."""
 
     print(f"\n[6/6] Testing model...")
     print(f"   Loading from: {model_path}")
 
-    # Hotfix for PyTorch 2.6+ unpickling security change
-    # see: https://github.com/Lightning-AI/pytorch-lightning/issues/20261
-    torch.serialization.add_safe_globals([GroupNormalizer, pd.DataFrame])
+    # Manually load checkpoint with weights_only=False
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
 
-    # Load best model
-    best_tft = TemporalFusionTransformer.load_from_checkpoint(model_path)
+    # Re-initialize the model
+    nbeats = create_model(
+        training_dataset,
+        stack_types=stack_types,
+        num_blocks=num_blocks,
+        num_layers=num_layers,
+        widths=widths
+    )
+
+    # Load the state_dict into the initialized model
+    nbeats.load_state_dict(checkpoint["state_dict"])
+    nbeats.eval() # Set to evaluation mode
 
     # Create test dataloader
     test_dataloader = test_dataset.to_dataloader(
@@ -275,7 +293,7 @@ def test_model(model_path, test_dataset, training_dataset):
 
     # Evaluate
     trainer = Trainer(accelerator="auto", devices=1)
-    test_results = trainer.test(best_tft, dataloaders=test_dataloader, verbose=False)
+    test_results = trainer.test(nbeats, dataloaders=test_dataloader, verbose=False)
 
     print("\n   Test Results:")
     print("   " + "-" * 60)
@@ -283,8 +301,8 @@ def test_model(model_path, test_dataset, training_dataset):
         print(f"   {key:30s}: {value:.4f}")
 
     # Make predictions on a few examples
-    print("\n   Making sample predictions...")
-    predictions = best_tft.predict(
+    print("\n   Making sample predictions (N-BEATS does not provide quantiles by default)...")
+    predictions = nbeats.predict(
         test_dataloader, mode="prediction", return_x=True, trainer_kwargs=dict(accelerator="auto")
     )
 
@@ -294,7 +312,7 @@ def test_model(model_path, test_dataset, training_dataset):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train/Test TFT for energy forecasting')
+    parser = argparse.ArgumentParser(description='Train/Test N-BEATS for energy forecasting')
     parser.add_argument('--mode', type=str, default='train_test',
                         choices=['train', 'test', 'train_test'],
                         help='Mode: train, test, or train_test')
@@ -306,10 +324,18 @@ def main():
                         help='Max training epochs')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size')
-    parser.add_argument('--hidden_size', type=int, default=64,
-                        help='Hidden size')
-    parser.add_argument('--attention_heads', type=int, default=4,
-                        help='Number of attention heads')
+    parser.add_argument('--stack_types', type=str, nargs='+', default=["seasonality", "trend", "identity"],
+                        help='Stack types for N-BEATS')
+    parser.add_argument('--num_blocks', type=int, nargs='+', default=[3, 3, 3],
+                        help='Number of blocks per stack')
+    parser.add_argument('--num_layers', type=int, nargs='+', default=[4, 4, 4],
+                        help='Number of layers per block')
+    parser.add_argument('--widths', type=int, nargs='+', default=[256, 256, 256],
+                        help='Widths of the networks')
+    parser.add_argument('--dropout', type=float, default=0.1,
+                        help='Dropout rate')
+    parser.add_argument('--learning_rate', type=float, default=0.001,
+                        help='Learning rate')
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='Checkpoint path for testing')
 
@@ -329,14 +355,18 @@ def main():
 
     if args.mode in ['train', 'train_test']:
         # Create and train model
-        tft = create_model(
+        nbeats_model = create_model(
             training,
-            hidden_size=args.hidden_size,
-            attention_heads=args.attention_heads
+            stack_types=args.stack_types,
+            num_blocks=args.num_blocks,
+            num_layers=args.num_layers,
+            widths=args.widths,
+            dropout=args.dropout,
+            learning_rate=args.learning_rate
         )
 
         trainer, best_model_path = train_model(
-            tft, training, validation,
+            nbeats_model, training, validation,
             max_epochs=args.epochs,
             batch_size=args.batch_size
         )
@@ -353,7 +383,13 @@ def main():
             checkpoint_path = args.checkpoint
 
         # Test model
-        test_results, predictions = test_model(checkpoint_path, test, training)
+        test_results, predictions = test_model(
+            checkpoint_path, test, training,
+            stack_types=args.stack_types,
+            num_blocks=args.num_blocks,
+            num_layers=args.num_layers,
+            widths=args.widths
+        )
 
     print("\n" + "=" * 80)
     print("✓ Complete!")

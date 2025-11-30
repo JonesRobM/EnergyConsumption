@@ -1,11 +1,11 @@
 """
-Standalone script to train and test Temporal Fusion Transformer (TFT)
+Standalone script to train and test Informer
 for energy consumption forecasting.
 
 Usage:
-    python train_tft.py --mode train          # Train new model
-    python train_tft.py --mode test           # Test existing model
-    python train_tft.py --mode train_test     # Train and test
+    python train_informer.py --mode train          # Train new model
+    python train_informer.py --mode test           # Test existing model
+    python train train_informer.py --mode train_test     # Train and test
 """
 
 import argparse
@@ -17,9 +17,9 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import PyTorch Forecasting
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+from pytorch_forecasting import TimeSeriesDataSet, Informer
 from pytorch_forecasting.data import GroupNormalizer
-from pytorch_forecasting.metrics import QuantileLoss
+from pytorch_forecasting.metrics import QuantileLoss # Informer can do quantile predictions
 
 # Import Lightning (new namespace)
 try:
@@ -33,12 +33,12 @@ except ImportError:
     from pytorch_lightning.loggers import TensorBoardLogger
 
 print("=" * 80)
-print("TFT Energy Consumption Forecasting - Training & Testing Script")
+print("Informer Energy Consumption Forecasting - Training & Testing Script")
 print("=" * 80)
 
 
 def load_and_prepare_data(data_path='composite_energy_data.csv', region='PJME_MW'):
-    """Load and prepare energy consumption data for TFT."""
+    """Load and prepare energy consumption data for Informer."""
 
     print(f"\n[1/6] Loading data from {data_path}...")
     df = pd.read_csv(data_path)
@@ -163,38 +163,42 @@ def create_datasets(df, encoder_length=168, prediction_length=24,
     return training, validation, test
 
 
-def create_model(training_dataset, hidden_size=64, attention_heads=4,
+def create_model(training_dataset, hidden_size=64, num_heads=4,
+                 num_encoder_layers=2, num_decoder_layers=1,
                  dropout=0.1, learning_rate=0.001):
-    """Create TFT model from dataset."""
+    """Create Informer model from dataset."""
 
-    print(f"\n[4/6] Creating TFT model...")
+    print(f"\n[4/6] Creating Informer model...")
     print(f"   Hidden size: {hidden_size}")
-    print(f"   Attention heads: {attention_heads}")
+    print(f"   Num heads: {num_heads}")
+    print(f"   Num encoder layers: {num_encoder_layers}")
+    print(f"   Num decoder layers: {num_decoder_layers}")
     print(f"   Dropout: {dropout}")
     print(f"   Learning rate: {learning_rate}")
 
-    tft = TemporalFusionTransformer.from_dataset(
+    informer = Informer.from_dataset(
         training_dataset,
         learning_rate=learning_rate,
         hidden_size=hidden_size,
-        attention_head_size=attention_heads,
+        attention_head_size=num_heads,
+        num_encoder_layers=num_encoder_layers,
+        num_decoder_layers=num_decoder_layers,
         dropout=dropout,
-        hidden_continuous_size=hidden_size // 2,
-        loss=QuantileLoss(),
+        loss=QuantileLoss(), # Informer can do quantile predictions
         log_interval=10,
         reduce_on_plateau_patience=4,
     )
 
-    total_params = sum(p.numel() for p in tft.parameters())
-    trainable_params = sum(p.numel() for p in tft.parameters() if p.requires_grad)
+    total_params = sum(p.numel() for p in informer.parameters())
+    trainable_params = sum(p.numel() for p in informer.parameters() if p.requires_grad)
 
     print(f"   ✓ Model created: {total_params:,} parameters ({trainable_params:,} trainable)")
 
-    return tft
+    return informer
 
 
-def train_model(tft, training, validation, max_epochs=50, batch_size=64):
-    """Train TFT model with PyTorch Lightning."""
+def train_model(informer, training, validation, max_epochs=50, batch_size=64):
+    """Train Informer model with PyTorch Lightning."""
 
     print(f"\n[5/6] Training model...")
     print(f"   Max epochs: {max_epochs}")
@@ -220,14 +224,14 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
 
     checkpoint = ModelCheckpoint(
         dirpath='checkpoints',
-        filename='tft-{epoch:02d}-{val_loss:.2f}',
+        filename='informer-{epoch:02d}-{val_loss:.2f}',
         monitor='val_loss',
         mode='min',
         save_top_k=3,
     )
 
     # Logger
-    logger = TensorBoardLogger("lightning_logs", name="tft_energy")
+    logger = TensorBoardLogger("lightning_logs", name="informer_energy")
 
     # Trainer
     trainer = Trainer(
@@ -244,7 +248,7 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
     print("\n   Starting training...")
     print("   " + "-" * 60)
     trainer.fit(
-        tft,
+        informer,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
@@ -255,18 +259,29 @@ def train_model(tft, training, validation, max_epochs=50, batch_size=64):
     return trainer, checkpoint.best_model_path
 
 
-def test_model(model_path, test_dataset, training_dataset):
-    """Test TFT model on test set."""
+def test_model(model_path, test_dataset, training_dataset,
+               hidden_size=64, num_heads=4,
+               num_encoder_layers=2, num_decoder_layers=1):
+    """Test Informer model on test set."""
 
     print(f"\n[6/6] Testing model...")
     print(f"   Loading from: {model_path}")
 
-    # Hotfix for PyTorch 2.6+ unpickling security change
-    # see: https://github.com/Lightning-AI/pytorch-lightning/issues/20261
-    torch.serialization.add_safe_globals([GroupNormalizer, pd.DataFrame])
+    # Manually load checkpoint with weights_only=False
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
 
-    # Load best model
-    best_tft = TemporalFusionTransformer.load_from_checkpoint(model_path)
+    # Re-initialize the model
+    informer = create_model(
+        training_dataset,
+        hidden_size=hidden_size,
+        num_heads=num_heads,
+        num_encoder_layers=num_encoder_layers,
+        num_decoder_layers=num_decoder_layers
+    )
+
+    # Load the state_dict into the initialized model
+    informer.load_state_dict(checkpoint["state_dict"])
+    informer.eval() # Set to evaluation mode
 
     # Create test dataloader
     test_dataloader = test_dataset.to_dataloader(
@@ -275,17 +290,17 @@ def test_model(model_path, test_dataset, training_dataset):
 
     # Evaluate
     trainer = Trainer(accelerator="auto", devices=1)
-    test_results = trainer.test(best_tft, dataloaders=test_dataloader, verbose=False)
+    test_results = trainer.test(informer, dataloaders=test_dataloader, verbose=False)
 
     print("\n   Test Results:")
     print("   " + "-" * 60)
     for key, value in test_results[0].items():
         print(f"   {key:30s}: {value:.4f}")
 
-    # Make predictions on a few examples
-    print("\n   Making sample predictions...")
-    predictions = best_tft.predict(
-        test_dataloader, mode="prediction", return_x=True, trainer_kwargs=dict(accelerator="auto")
+    # Make predictions (Informer can do quantile predictions)
+    print("\n   Making sample predictions (Informer provides quantiles)...")
+    predictions = informer.predict(
+        test_dataloader, mode="quantiles", return_x=True, trainer_kwargs=dict(accelerator="auto")
     )
 
     print(f"   ✓ Generated {len(predictions.output)} predictions")
@@ -294,7 +309,7 @@ def test_model(model_path, test_dataset, training_dataset):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train/Test TFT for energy forecasting')
+    parser = argparse.ArgumentParser(description='Train/Test Informer for energy forecasting')
     parser.add_argument('--mode', type=str, default='train_test',
                         choices=['train', 'test', 'train_test'],
                         help='Mode: train, test, or train_test')
@@ -307,9 +322,17 @@ def main():
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size')
     parser.add_argument('--hidden_size', type=int, default=64,
-                        help='Hidden size')
-    parser.add_argument('--attention_heads', type=int, default=4,
+                        help='Hidden size of transformer layers')
+    parser.add_argument('--num_heads', type=int, default=4,
                         help='Number of attention heads')
+    parser.add_argument('--num_encoder_layers', type=int, default=2,
+                        help='Number of encoder layers')
+    parser.add_argument('--num_decoder_layers', type=int, default=1,
+                        help='Number of decoder layers')
+    parser.add_argument('--dropout', type=float, default=0.1,
+                        help='Dropout rate')
+    parser.add_argument('--learning_rate', type=float, default=0.001,
+                        help='Learning rate')
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='Checkpoint path for testing')
 
@@ -329,14 +352,18 @@ def main():
 
     if args.mode in ['train', 'train_test']:
         # Create and train model
-        tft = create_model(
+        informer_model = create_model(
             training,
             hidden_size=args.hidden_size,
-            attention_heads=args.attention_heads
+            num_heads=args.num_heads,
+            num_encoder_layers=args.num_encoder_layers,
+            num_decoder_layers=args.num_decoder_layers,
+            dropout=args.dropout,
+            learning_rate=args.learning_rate
         )
 
         trainer, best_model_path = train_model(
-            tft, training, validation,
+            informer_model, training, validation,
             max_epochs=args.epochs,
             batch_size=args.batch_size
         )
@@ -353,7 +380,13 @@ def main():
             checkpoint_path = args.checkpoint
 
         # Test model
-        test_results, predictions = test_model(checkpoint_path, test, training)
+        test_results, predictions = test_model(
+            checkpoint_path, test, training,
+            hidden_size=args.hidden_size,
+            num_heads=args.num_heads,
+            num_encoder_layers=args.num_encoder_layers,
+            num_decoder_layers=args.num_decoder_layers
+        )
 
     print("\n" + "=" * 80)
     print("✓ Complete!")
