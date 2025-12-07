@@ -18,10 +18,8 @@ catboost>=1.2.0,<2.0.0
 tensorflow>=2.15.0,<3.0.0
 torch>=2.1.0,<3.0.0
 torchvision>=0.16.0,<1.0.0
-pytorch-lightning>=2.1.0,<2.5.0  # Pin to <2.5.0 for compatibility with pytorch-forecasting 1.5.0
-
-# Time Series Forecasting with Deep Learning
-pytorch-forecasting>=1.0.0
+pytorch-lightning==2.0.9
+pytorch-forecasting==0.10.3
 
 # Jupyter and Interactive Computing
 jupyter>=1.0.0

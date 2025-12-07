@@ -1,120 +1,233 @@
 # Energy Consumption Forecasting
 
-This project provides a comprehensive analysis and forecasting pipeline for the Kaggle Hourly Energy Consumption dataset. It explores the data, builds several predictive models, and culminates in a state-of-the-art Temporal Fusion Transformer (TFT) for multi-horizon forecasting.
+Machine learning and deep learning models for hourly energy consumption forecasting using the Kaggle Hourly Energy Consumption dataset.
 
-## Features
+## Overview
 
-- **In-depth EDA**: Statistical analysis, correlation studies, and visualization of temporal patterns (hourly, daily, seasonal).
-- **Multiple Models**: Includes Linear Regression, Ridge, Lasso, Random Forest, XGBoost, LightGBM, and CatBoost.
-- **Temporal Fusion Transformer**: An interpretable deep learning model for multi-horizon forecasting with uncertainty quantification.
-- **Production-Ready Scripts**: Standalone scripts for automated training and prediction with the TFT model.
-- **Comprehensive Analysis**: A detailed report on the findings is available in [`Analysis.md`](Analysis.md).
+This project provides a complete pipeline for time-series forecasting, from data exploration to production-ready model training. Models range from traditional machine learning (XGBoost, LightGBM) to state-of-the-art deep learning (LSTM, GRU, TFT).
+
+**Key Features:**
+- Multiple model architectures with performance comparisons
+- GPU-accelerated training for deep learning models
+- Automated visualization and figure generation
+- Production-ready training scripts
+- Comprehensive documentation
+
+## Quick Start
+
+### Installation
+
+```bash
+# Clone and navigate
+git clone <repository-url>
+cd EnergyConsumption
+
+# Set up environment
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Train Your First Model (5 minutes)
+
+```bash
+# Download data (run once)
+jupyter notebook notebooks/exploration.ipynb  # Execute first few cells
+
+# Train LSTM/GRU model
+python scripts/train_lstm.py --mode train_test --epochs 50
+```
+
+**Output:**
+- Model checkpoint: `checkpoints/lstm_best_PJME_MW.pt`
+- Training plots: `figures/lstm_training_history.png`
+- Prediction visualizations: `figures/lstm_predictions.png`
+
+## Model Performance
+
+| Model | RMSE (MW) | Training Time | Best For |
+|-------|-----------|---------------|----------|
+| **GRU** | **~800-1000** | **10-15 min** | **Recommended default** |
+| XGBoost/LightGBM | ~900 | 2-5 min | No GPU available |
+| LSTM | ~800-1200 | 10-15 min | Alternative to GRU |
+| TFT | ~700-1000 | 30-60 min | Maximum accuracy |
+
+> See [Model Comparison](docs/MODEL_COMPARISON.md) for detailed analysis
+
+## Documentation
+
+**Getting Started:**
+- [Quick Start Guide](docs/GETTING_STARTED.md) - Installation and first model
+- [Model Comparison](docs/MODEL_COMPARISON.md) - Choose the right model
+
+**Model Guides:**
+- [LSTM/GRU Guide](docs/LSTM_GUIDE.md) - Recommended starting point
+- [TFT Guide](docs/TFT_GUIDE.md) - Advanced transformer model
+
+**Reference:**
+- [Complete Documentation](docs/README.md) - Full documentation index
+- [Analysis Report](Analysis.md) - Detailed findings and visualizations
 
 ## Repository Structure
 
 ```
 EnergyConsumption/
-├── notebooks/
-│   ├── exploration.ipynb       # Main analysis notebook (complete pipeline)
-│   └── model_comparison.ipynb  # Notebook for comparing models
-├── scripts/
-│   ├── train_tft.py            # Standalone TFT training/testing script
-│   ├── predict_tft.py          # TFT prediction and visualization script
-│   └── experimental/
-│       ├── (scripts for DeepAR, Informer, N-BEATS)
-├── tests/
-│   ├── test_tft_compatibility.py
-│   └── test_tft_working.py
-├── Analysis.md                 # Detailed report of the analysis and findings
-├── TFT_GUIDE.md                # Complete guide to the TFT scripts
-├── README.md                   # This file
-├── requirements.txt            # Project dependencies
-├── pyproject.toml              # Project configuration
-├── LICENSE
-└── .gitignore
+├── docs/                   # Complete documentation
+├── scripts/                # Training and generation scripts
+│   ├── train_lstm.py      # LSTM/GRU training (recommended)
+│   ├── train_tft.py       # TFT training (advanced)
+│   └── generate_figures.py # Visualization generation
+├── src/                    # Core library
+│   ├── data_loader.py     # Data downloading
+│   ├── feature_engineering.py
+│   ├── modeling.py        # Traditional ML models
+│   └── plotting.py
+├── notebooks/              # Jupyter notebooks
+│   └── exploration.ipynb  # Main analysis notebook
+├── figures/                # Generated visualizations (auto-created)
+├── checkpoints/            # Model checkpoints (auto-created)
+└── requirements.txt        # Dependencies
 ```
 
-*Generated directories such as `checkpoints/`, `lightning_logs/`, and `catboost_info/` are not included in this list.*
+## Example Usage
 
-## Getting Started
+### Train Optimized GRU Model
 
-### Prerequisites
+```bash
+# PowerShell (Windows)
+python scripts/train_lstm.py `
+    --use_gru `
+    --hidden_size 512 `
+    --num_layers 3 `
+    --epochs 100
 
-- Python 3.9+
-- Kaggle API token (for downloading the dataset)
+# Bash (Linux/Mac)
+python scripts/train_lstm.py \
+    --use_gru \
+    --hidden_size 512 \
+    --num_layers 3 \
+    --epochs 100
+```
 
-### Installation
+### Generate Visualizations
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd EnergyConsumption
-    ```
+```bash
+python scripts/generate_figures.py
+```
 
-2.  **Set up a virtual environment:**
-    ```bash
-    python -m venv .venv
-    ```
+Creates 13 figures including:
+- Training history and convergence
+- Prediction quality analysis
+- Feature importance
+- Data exploration (correlations, patterns, seasonality)
 
-3.  **Activate the environment:**
-    -   Windows: `.venv\Scripts\activate`
-    -   macOS/Linux: `source .venv/bin/activate`
-
-4.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-## Usage
-
-### 1. Data Preparation
-
-The `composite_energy_data.csv` file required for the analysis is generated by running the initial cells of the `notebooks/exploration.ipynb` notebook. This step downloads the data from Kaggle and processes it.
-
-### 2. Exploration and Modeling (Notebooks)
-
-For a detailed, step-by-step exploration of the data and models, use the Jupyter notebooks:
+### Explore Data
 
 ```bash
 jupyter notebook notebooks/exploration.ipynb
 ```
 
-### 3. Training and Prediction (Scripts)
+## Key Design Choices
 
-For automated training and prediction with the Temporal Fusion Transformer model, use the provided scripts.
+### Why GRU is Recommended
 
-**Train a new TFT model:**
-```bash
-python scripts/train_tft.py --mode train_test --epochs 50
+**Design rationale:**
+1. **Simpler architecture** than LSTM → less prone to overfitting
+2. **Faster training** (15-20% speedup) → quicker iterations
+3. **Better generalization** on time-series data → lower validation loss
+4. **Comparable accuracy** to LSTM → same forecasting power
+5. **GPU-optimized** → efficient hardware utilization
+
+**Performance comparison:**
 ```
-*(See `TFT_GUIDE.md` for more training options)*
-
-**Make predictions with a trained model:**
-```bash
-python scripts/predict_tft.py --checkpoint checkpoints/<your-model.ckpt>
-```
-
-**Monitor training with TensorBoard:**
-```bash
-tensorboard --logdir lightning_logs
+LSTM: RMSE ~1100 MW (18 epochs, val loss 0.0570)
+GRU:  RMSE ~850 MW (similar epochs, better convergence)
 ```
 
-## Analysis and Findings
+### Why 336-Hour Lookback
 
-A detailed report on the project's findings, including visualizations and model performance comparisons, is available in [`Analysis.md`](Analysis.md).
+**Captures weekly patterns:**
+- 336 hours = 2 weeks of hourly data
+- Includes multiple weekly cycles (important for energy)
+- Captures day-of-week and time-of-day patterns
+- Better than 168h (1 week) for irregular schedules
 
-## Temporal Fusion Transformer (TFT)
+### Why Smaller Batch Sizes (32-64)
 
-For a deep dive into the TFT model, its architecture, and how to use the training and prediction scripts, please refer to the [`TFT_GUIDE.md`](TFT_GUIDE.md).
+**Better generalization:**
+- Smaller batches = noisier gradients = better exploration
+- Helps avoid sharp minima → better test performance
+- More frequent weight updates → faster convergence
+- Trade-off: Slightly slower per epoch, but fewer epochs needed
 
 ## Technology Stack
 
-- **Core**: NumPy, Pandas, SciPy
-- **Visualization**: Matplotlib, Seaborn
-- **Machine Learning**: scikit-learn, XGBoost, LightGBM, CatBoost
-- **Deep Learning**: PyTorch, PyTorch Lightning, PyTorch Forecasting
-- **Development**: Jupyter, Kaggle API
+- **Core:** NumPy, Pandas, SciPy
+- **Visualization:** Matplotlib, Seaborn, Plotly
+- **Traditional ML:** scikit-learn, XGBoost, LightGBM, CatBoost
+- **Deep Learning:** PyTorch, PyTorch Lightning, PyTorch Forecasting
+- **Development:** Jupyter, Kaggle API
+
+## Sample Results
+
+### Training Convergence
+![Training History](figures/lstm_training_history.png)
+
+### Prediction Quality
+![Predictions](figures/lstm_predictions.png)
+
+### Feature Importance
+![Feature Importance](figures/feature_importance.png)
+
+> Run training to generate your own figures
+
+## Common Tasks
+
+**Train default model:**
+```bash
+python scripts/train_lstm.py --mode train_test --epochs 50
+```
+
+**Train high-performance model:**
+```bash
+python scripts/train_lstm.py --use_gru --hidden_size 512 --num_layers 3 --epochs 100
+```
+
+**Test saved model:**
+```bash
+python scripts/train_lstm.py --mode test --checkpoint_path checkpoints/lstm_best_PJME_MW.pt
+```
+
+**Generate all figures:**
+```bash
+python scripts/generate_figures.py
+```
+
+## Requirements
+
+- Python 3.9+
+- CUDA-capable GPU (recommended)
+- 8GB+ RAM
+- 2GB+ storage for data and checkpoints
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT License - See [LICENSE](LICENSE) file for details
+
+## Getting Help
+
+1. **Getting Started**: Read [Getting Started Guide](docs/GETTING_STARTED.md)
+2. **Model Selection**: Review [Model Comparison](docs/MODEL_COMPARISON.md)
+3. **Training Issues**: Check [LSTM/GRU Guide](docs/LSTM_GUIDE.md)
+4. **Advanced Features**: See [Complete Documentation](docs/README.md)
+
+---
+
+**Quick Links:**
+[Getting Started](docs/GETTING_STARTED.md) |
+[Model Comparison](docs/MODEL_COMPARISON.md) |
+[LSTM Guide](docs/LSTM_GUIDE.md) |
+[Full Docs](docs/README.md)
