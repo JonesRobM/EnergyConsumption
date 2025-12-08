@@ -7,7 +7,7 @@ Complete guide to understanding the Kaggle Hourly Energy Consumption dataset and
 ### Source
 **Kaggle Hourly Energy Consumption Dataset**
 - URL: https://www.kaggle.com/robikscube/hourly-energy-consumption
-- License: Public Domain
+- Licence: Public Domain
 - Size: ~145,000 hourly observations per region
 - Time span: 2004-2018 (varies by region)
 
@@ -117,7 +117,7 @@ df['hour'] = df['Datetime'].dt.hour
 ```
 - Captures daily usage patterns
 - Critical for intraday forecasting
-- Encodes work schedules, human behavior
+- Encodes work schedules, human behaviour
 
 **Day of Week (0-6):**
 ```python
@@ -275,10 +275,10 @@ for i in range(n_windows):
 
 ### Why Normalize?
 
-Neural networks train better with normalized inputs:
+Neural networks train better with normalised inputs:
 - Faster convergence
 - More stable gradients
-- Better generalization
+- Better generalisation
 
 ### Method: StandardScaler
 
@@ -466,5 +466,5 @@ test = test.dropna()
 ## Next Steps
 
 - Explore [LSTM/GRU Guide](LSTM_GUIDE.md) for model training
-- Review [Visualization Guide](VISUALIZATION_GUIDE.md) for interpreting results
+- Review [Visualisation Guide](VISUALIZATION_GUIDE.md) for interpreting results
 - Check [Model Comparison](MODEL_COMPARISON.md) for choosing the right model

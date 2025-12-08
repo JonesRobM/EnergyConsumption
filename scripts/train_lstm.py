@@ -207,11 +207,11 @@ class LSTMTrainer:
         input_size = train_dataset.data.shape[1]
         self._build_model(input_size)
 
-        # Loss and optimizer
+        # Loss and optimiser
         criterion = nn.MSELoss()
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
+        optimiser = torch.optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=5
+            optimiser, mode='min', factor=0.5, patience=5
         )
 
         print("\n[5/5] Training model...")
@@ -225,11 +225,11 @@ class LSTMTrainer:
             for batch_X, batch_y in train_loader:
                 batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
 
-                optimizer.zero_grad()
+                optimiser.zero_grad()
                 output = self.model(batch_X)
                 loss = criterion(output, batch_y)
                 loss.backward()
-                optimizer.step()
+                optimiser.step()
 
                 train_loss += loss.item()
 
@@ -263,7 +263,7 @@ class LSTMTrainer:
                 checkpoint_path.parent.mkdir(exist_ok=True)
                 torch.save({
                     'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
+                    'optimiser_state_dict': optimiser.state_dict(),
                     'epoch': epoch,
                     'val_loss': val_loss,
                     'config': self.config,

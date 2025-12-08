@@ -1,6 +1,6 @@
-# Visualization Guide
+# Visualisation Guide
 
-Complete guide to understanding and interpreting all generated figures and visualizations.
+Complete guide to understanding and interpreting all generated figures and visualisations.
 
 ## Overview
 
@@ -42,7 +42,7 @@ This project automatically generates 13+ figures for data exploration, model tra
 
 **What to look for:**
 - High correlations (>0.8): Regions with similar patterns
-- Low correlations (<0.5): Regions with independent behavior
+- Low correlations (<0.5): Regions with independent behaviour
 - Block patterns: Regional groups with similar characteristics
 
 **Insights:**
@@ -589,7 +589,7 @@ python scripts/generate_figures.py
 
 ## Next Steps
 
-After reviewing visualizations:
+After reviewing visualisations:
 - If performance good → [Deploy or experiment further](LSTM_GUIDE.md)
 - If overfitting → Increase regularization
 - If underfitting → Increase model capacity

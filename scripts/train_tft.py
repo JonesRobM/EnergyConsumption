@@ -88,7 +88,7 @@ class TFTModel:
             static_categoricals=["series_id"],
             time_varying_known_categoricals=["hour", "dayofweek", "month"],
             time_varying_unknown_reals=["energy", "lag_24", "rolling_mean_24"],
-            target_normalizer=GroupNormalizer(
+            target_normaliser=GroupNormalizer(
                 groups=["series_id"], transformation="softplus"
             ),
             add_relative_time_idx=True,
@@ -179,7 +179,7 @@ class TFTModel:
         # Re-create the model architecture from the training data
         # (which must be available or re-created)
         df = self._load_and_prepare_data()
-        self._create_datasets(df) # This re-initializes self.training_data
+        self._create_datasets(df) # This re-initialises self.training_data
         
         loaded_model = TemporalFusionTransformer.from_dataset(self.training_data)
         

@@ -141,7 +141,7 @@ jupyter notebook notebooks/exploration.ipynb
 python scripts/generate_figures.py
 ```
 
-This creates comprehensive visualizations for:
+This creates comprehensive visualisations for:
 - Data exploration (correlations, patterns, seasonality)
 - Model performance comparisons
 - Feature importance analysis
@@ -225,7 +225,7 @@ jupyter notebook
 1. Check the relevant guide:
    - [LSTM/GRU Guide](LSTM_GUIDE.md)
    - [TFT Guide](TFT_GUIDE.md)
-   - [Visualization Guide](VISUALIZATION_GUIDE.md)
+   - [Visualisation Guide](VISUALIZATION_GUIDE.md)
 
 2. Review the [Model Comparison](MODEL_COMPARISON.md) for choosing the right model
 

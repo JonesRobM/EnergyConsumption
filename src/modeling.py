@@ -11,8 +11,8 @@ from catboost import CatBoostRegressor
 
 from src.feature_engineering import create_lag_features, create_rolling_features
 
-def prepare_modeling_data(df_composite, target_col='PJME_MW'):
-    """Prepares the data for modeling by creating features and splitting."""
+def prepare_modelling_data(df_composite, target_col='PJME_MW'):
+    """Prepares the data for modelling by creating features and splitting."""
     
     df_temp = df_composite.copy()
     df_temp = create_lag_features(df_temp, target_col, lags=[1, 2, 3, 24, 168])
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     df = download_and_prepare_data()
     if df is not None:
         df = add_temporal_features(df)
-        X_train, X_test, y_train, y_test, _, _ = prepare_modeling_data(df)
+        X_train, X_test, y_train, y_test, _, _ = prepare_modelling_data(df)
         
         shallow_results = train_shallow_models(X_train, y_train, X_test, X_train, X_test) # Using non-scaled for RF
         gb_results = train_gradient_boosting_models(X_train, y_train, X_test, y_test)

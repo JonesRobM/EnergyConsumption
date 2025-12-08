@@ -128,8 +128,8 @@ Start Here
 - Often better than LSTM (RMSE ~800-1000 MW)
 - Faster training than LSTM
 - Simpler architecture = less overfitting
-- Better generalization
-- Same sequence modeling power
+- Better generalisation
+- Same sequence modelling power
 
 **Cons:**
 - Same as LSTM
@@ -196,7 +196,7 @@ Start Here
 - RMSE: ~800-1000 MW
 - Training: 10-15 minutes
 - Inference: Fast on GPU
-- Good generalization
+- Good generalisation
 
 **Alternative:** TFT if you need interpretability
 
@@ -215,7 +215,7 @@ Start Here
 
 **Recommended Model:** **XGBoost** or **LightGBM**
 ```bash
-# Already implemented in src/modeling.py
+# Already implemented in src/modelling.py
 # Run exploration.ipynb cells
 ```
 

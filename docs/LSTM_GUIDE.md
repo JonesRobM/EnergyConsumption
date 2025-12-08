@@ -4,7 +4,7 @@ This guide provides comprehensive documentation for training and evaluating LSTM
 
 ## Overview
 
-LSTM (Long Short-Term Memory) and GRU (Gated Recurrent Unit) are recurrent neural network architectures designed for sequence modeling. Unlike the more complex Temporal Fusion Transformer (TFT), these models offer:
+LSTM (Long Short-Term Memory) and GRU (Gated Recurrent Unit) are recurrent neural network architectures designed for sequence modelling. Unlike the more complex Temporal Fusion Transformer (TFT), these models offer:
 
 - **Simplicity**: Easier to understand and debug
 - **Faster training**: Typically trains faster than attention-based models
@@ -19,7 +19,7 @@ The implementation includes:
 - **Hidden size**: 64-512 units per layer (default: 128)
 - **Dropout**: Regularization between layers (default: 0.2)
 - **Sequence-to-vector**: Takes in a sequence and predicts future values
-- **Adam optimizer**: With learning rate scheduling
+- **Adam optimiser**: With learning rate scheduling
 - **Early stopping**: Prevents overfitting
 
 ### Features Used
@@ -238,7 +238,7 @@ Testing Model
 
 Saved in `checkpoints/`:
 - `lstm_best_{region}.pt` or `gru_best_{region}.pt`
-- Contains model weights, optimizer state, scalers, and training history
+- Contains model weights, optimiser state, scalers, and training history
 
 ### Figures
 
@@ -259,7 +259,7 @@ The saved checkpoint contains:
 ```python
 {
     'model_state_dict': {...},      # Model weights
-    'optimizer_state_dict': {...},  # Optimizer state
+    'optimiser_state_dict': {...},  # Optimiser state
     'epoch': 42,                    # Final epoch number
     'val_loss': 0.1542,            # Best validation loss
     'config': {...},               # All command-line arguments
@@ -313,7 +313,7 @@ Watch the training/validation loss gap:
 
 ### 4. Batch Size Selection
 
-- **Smaller batches (32-64)**: Better generalization, slower training
+- **Smaller batches (32-64)**: Better generalisation, slower training
 - **Larger batches (128-256)**: Faster training, may need higher learning rate
 
 ### 5. Learning Rate
@@ -395,7 +395,7 @@ Train on one region, test on another:
 
 ## Generating Figures
 
-The `generate_figures.py` script can automatically generate visualizations from trained models:
+The `generate_figures.py` script can automatically generate visualisations from trained models:
 
 ```bash
 python scripts/generate_figures.py
