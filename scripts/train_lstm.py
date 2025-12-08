@@ -1,4 +1,12 @@
-"""Standalone script for training and evaluating LSTM/GRU models for time-series forecasting."""
+"""Standalone script for training and evaluating LSTM/GRU models for time-series forecasting.
+
+This script provides a complete pipeline for:
+- Loading and preprocessing energy consumption data
+- Engineering temporal and statistical features
+- Training LSTM or GRU models with GPU acceleration
+- Evaluating model performance on test data
+- Generating training history and prediction visualisations
+"""
 import argparse
 import warnings
 from pathlib import Path
@@ -16,10 +24,11 @@ warnings.filterwarnings("ignore")
 
 
 class TimeSeriesDataset(Dataset):
-    """Simple dataset for time-series forecasting."""
+    """Dataset for time-series forecasting with sliding window approach."""
 
     def __init__(self, data, target, lookback, forecast_horizon):
-        """
+        """Initialise dataset with features and targets.
+
         Args:
             data: numpy array of shape (n_samples, n_features)
             target: numpy array of shape (n_samples,)
@@ -43,7 +52,7 @@ class TimeSeriesDataset(Dataset):
 
 
 class LSTMModel(nn.Module):
-    """Simple LSTM model for time-series forecasting."""
+    """LSTM/GRU model for time-series forecasting."""
 
     def __init__(self, input_size, hidden_size, num_layers, forecast_horizon, dropout=0.2, use_gru=False):
         super(LSTMModel, self).__init__()
@@ -86,7 +95,7 @@ class LSTMTrainer:
         self.val_losses = []
 
     def _load_and_prepare_data(self):
-        """Loads and preprocesses the energy consumption data."""
+        """Load and preprocess energy consumption data."""
         print(f"\n[1/5] Loading data from {self.config.data_path}...")
         df = pd.read_csv(self.config.data_path, parse_dates=["Datetime"])
 

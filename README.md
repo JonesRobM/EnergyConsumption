@@ -1,228 +1,167 @@
 # Energy Consumption Forecasting
 
-Machine learning and deep learning models for hourly energy consumption forecasting using the Kaggle Hourly Energy Consumption dataset.
+Time-series forecasting of hourly energy consumption using deep learning and traditional ML models.
 
 ## Overview
 
-This project provides a complete pipeline for time-series forecasting, from data exploration to production-ready model training. Models range from traditional machine learning (XGBoost, LightGBM) to state-of-the-art deep learning (LSTM, GRU, TFT).
-
-**Key Features:**
-- Multiple model architectures with performance comparisons
-- GPU-accelerated training for deep learning models
-- Automated visualization and figure generation
-- Production-ready training scripts
-- Comprehensive documentation
+Production-ready pipeline for energy demand forecasting across 10 U.S. regions (145k+ hourly observations, 2004-2018). Implements LSTM, GRU, TFT, and gradient-boosted models with GPU acceleration.
 
 ## Quick Start
 
-### Installation
-
 ```bash
-# Clone and navigate
-git clone <repository-url>
-cd EnergyConsumption
-
-# Set up environment
+# Setup
 python -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Linux/Mac
-
-# Install dependencies
+.venv\Scripts\activate  # Windows; source .venv/bin/activate on Linux/Mac
 pip install -r requirements.txt
+
+# Train model (5 minutes)
+python scripts/train_lstm.py --use_gru --mode train_test --epochs 50
 ```
 
-### Train Your First Model (5 minutes)
+**Outputs:** Checkpoint in `checkpoints/`, figures in `figures/`
 
-```bash
-# Download data (run once)
-jupyter notebook notebooks/exploration.ipynb  # Execute first few cells
+## Results
 
-# Train LSTM/GRU model
-python scripts/train_lstm.py --mode train_test --epochs 50
-```
+**GRU Model (GPU-optimised, 336h lookback, 512 hidden, 3 layers):**
 
-**Output:**
-- Model checkpoint: `checkpoints/lstm_best_PJME_MW.pt`
-- Training plots: `figures/lstm_training_history.png`
-- Prediction visualizations: `figures/lstm_predictions.png`
+![GRU Training History](figures/gru_training_history.png)
 
-## Model Performance
+![GRU Predictions](figures/gru_predictions.png)
 
-| Model | RMSE (MW) | Training Time | Best For |
-|-------|-----------|---------------|----------|
-| **GRU** | **~800-1000** | **10-15 min** | **Recommended default** |
-| XGBoost/LightGBM | ~900 | 2-5 min | No GPU available |
-| LSTM | ~800-1200 | 10-15 min | Alternative to GRU |
-| TFT | ~700-1000 | 30-60 min | Maximum accuracy |
+| Metric | Value |
+|--------|-------|
+| RMSE | 1927.85 MW |
+| MAE | 1448.76 MW |
+| MAPE | 4.79% |
 
-> See [Model Comparison](docs/MODEL_COMPARISON.md) for detailed analysis
+## Model Comparison
+
+| Model | RMSE (MW) | MAPE (%) | Training Time | Use Case |
+|-------|-----------|----------|---------------|----------|
+| **GRU** | **1928** | **4.79** | 10-15 min | GPU available (recommended) |
+| LSTM | 1778 | 4.17 | 10-15 min | Alternative to GRU |
+| XGBoost/LightGBM | ~900 | ~2.5 | 2-5 min | CPU only, fast iterations |
+| TFT | ~700-1000 | ~2.0-3.0 | 30-60 min | Maximum accuracy |
+
+> Full analysis: [Model Comparison Guide](docs/MODEL_COMPARISON.md)
 
 ## Documentation
 
-**Getting Started:**
-- [Quick Start Guide](docs/GETTING_STARTED.md) - Installation and first model
-- [Model Comparison](docs/MODEL_COMPARISON.md) - Choose the right model
-
-**Model Guides:**
-- [LSTM/GRU Guide](docs/LSTM_GUIDE.md) - Recommended starting point
-- [TFT Guide](docs/TFT_GUIDE.md) - Advanced transformer model
+**Guides:**
+- [Getting Started](docs/GETTING_STARTED.md) - Installation and first training
+- [LSTM/GRU Guide](docs/LSTM_GUIDE.md) - Detailed training instructions
+- [Model Comparison](docs/MODEL_COMPARISON.md) - Choosing the right model
+- [Data Guide](docs/DATA_GUIDE.md) - Dataset structure and features
+- [Visualisation Guide](docs/VISUALIZATION_GUIDE.md) - Interpreting results
 
 **Reference:**
 - [Complete Documentation](docs/README.md) - Full documentation index
-- [Analysis Report](Analysis.md) - Detailed findings and visualizations
+- [Analysis Report](Analysis.md) - Exploratory data analysis
+
+## Common Commands
+
+**Train default GRU:**
+```bash
+python scripts/train_lstm.py --use_gru --mode train_test --epochs 50
+```
+
+**Train optimised model:**
+```bash
+# PowerShell (Windows)
+python scripts/train_lstm.py `
+    --use_gru --mode train_test `
+    --hidden_size 512 --num_layers 3 `
+    --lookback 336 --batch_size 32 `
+    --epochs 100
+
+# Bash (Linux/Mac)
+python scripts/train_lstm.py \
+    --use_gru --mode train_test \
+    --hidden_size 512 --num_layers 3 \
+    --lookback 336 --batch_size 32 \
+    --epochs 100
+```
+
+**Test saved model:**
+```bash
+python scripts/train_lstm.py --mode test \
+    --checkpoint_path checkpoints/lstm_best_PJME_MW.pt \
+    --use_gru --hidden_size 512 --num_layers 3 --lookback 336
+```
+
+**Generate visualisations:**
+```bash
+python scripts/generate_figures.py
+```
+
+## Key Design Decisions
+
+### GRU Architecture
+
+**Why GRU over LSTM:**
+- 15-20% faster training (simpler architecture)
+- Better generalisation on time-series data
+- Less prone to overfitting
+- Comparable accuracy, lower computational cost
+
+**Configuration:**
+- **Lookback:** 336 hours (2 weeks) to capture weekly patterns
+- **Hidden size:** 512 units for complex pattern learning
+- **Layers:** 3 for hierarchical feature extraction
+- **Batch size:** 32 for better generalisation (noisier gradients)
+- **Dropout:** 0.4 to prevent overfitting
+
+### Feature Engineering
+
+- **Temporal features:** hour, day-of-week, month
+- **Lag features:** 1h, 24h, 168h (weekly)
+- **Rolling statistics:** 24h mean/std for trend capture
+- **Normalisation:** StandardScaler on all features
 
 ## Repository Structure
 
 ```
 EnergyConsumption/
 ├── docs/                   # Complete documentation
-├── scripts/                # Training and generation scripts
+├── scripts/
 │   ├── train_lstm.py      # LSTM/GRU training (recommended)
 │   ├── train_tft.py       # TFT training (advanced)
-│   └── generate_figures.py # Visualization generation
-├── src/                    # Core library
-│   ├── data_loader.py     # Data downloading
+│   └── generate_figures.py
+├── src/
+│   ├── data_loader.py
 │   ├── feature_engineering.py
-│   ├── modeling.py        # Traditional ML models
+│   ├── modeling.py
 │   └── plotting.py
-├── notebooks/              # Jupyter notebooks
-│   └── exploration.ipynb  # Main analysis notebook
-├── figures/                # Generated visualizations (auto-created)
-├── checkpoints/            # Model checkpoints (auto-created)
-└── requirements.txt        # Dependencies
-```
-
-## Example Usage
-
-### Train Optimized GRU Model
-
-```bash
-# PowerShell (Windows)
-python scripts/train_lstm.py `
-    --use_gru `
-    --hidden_size 512 `
-    --num_layers 3 `
-    --epochs 100
-
-# Bash (Linux/Mac)
-python scripts/train_lstm.py \
-    --use_gru \
-    --hidden_size 512 \
-    --num_layers 3 \
-    --epochs 100
-```
-
-### Generate Visualizations
-
-```bash
-python scripts/generate_figures.py
-```
-
-Creates 13 figures including:
-- Training history and convergence
-- Prediction quality analysis
-- Feature importance
-- Data exploration (correlations, patterns, seasonality)
-
-### Explore Data
-
-```bash
-jupyter notebook notebooks/exploration.ipynb
-```
-
-## Key Design Choices
-
-### Why GRU is Recommended
-
-**Design rationale:**
-1. **Simpler architecture** than LSTM → less prone to overfitting
-2. **Faster training** (15-20% speedup) → quicker iterations
-3. **Better generalization** on time-series data → lower validation loss
-4. **Comparable accuracy** to LSTM → same forecasting power
-5. **GPU-optimized** → efficient hardware utilization
-
-**Performance comparison:**
-```
-LSTM: RMSE ~1100 MW (18 epochs, val loss 0.0570)
-GRU:  RMSE ~850 MW (similar epochs, better convergence)
-```
-
-### Why 336-Hour Lookback
-
-**Captures weekly patterns:**
-- 336 hours = 2 weeks of hourly data
-- Includes multiple weekly cycles (important for energy)
-- Captures day-of-week and time-of-day patterns
-- Better than 168h (1 week) for irregular schedules
-
-### Why Smaller Batch Sizes (32-64)
-
-**Better generalization:**
-- Smaller batches = noisier gradients = better exploration
-- Helps avoid sharp minima → better test performance
-- More frequent weight updates → faster convergence
-- Trade-off: Slightly slower per epoch, but fewer epochs needed
-
-## Technology Stack
-
-- **Core:** NumPy, Pandas, SciPy
-- **Visualization:** Matplotlib, Seaborn, Plotly
-- **Traditional ML:** scikit-learn, XGBoost, LightGBM, CatBoost
-- **Deep Learning:** PyTorch, PyTorch Lightning, PyTorch Forecasting
-- **Development:** Jupyter, Kaggle API
-
-## Sample Results
-
-### Training Convergence
-![Training History](figures/lstm_training_history.png)
-
-### Prediction Quality
-![Predictions](figures/lstm_predictions.png)
-
-### Feature Importance
-![Feature Importance](figures/feature_importance.png)
-
-> Run training to generate your own figures
-
-## Common Tasks
-
-**Train default model:**
-```bash
-python scripts/train_lstm.py --mode train_test --epochs 50
-```
-
-**Train high-performance model:**
-```bash
-python scripts/train_lstm.py --use_gru --hidden_size 512 --num_layers 3 --epochs 100
-```
-
-**Test saved model:**
-```bash
-python scripts/train_lstm.py --mode test --checkpoint_path checkpoints/lstm_best_PJME_MW.pt
-```
-
-**Generate all figures:**
-```bash
-python scripts/generate_figures.py
+├── notebooks/
+│   └── exploration.ipynb  # EDA and analysis
+├── figures/                # Auto-generated visualisations
+└── checkpoints/            # Model checkpoints
 ```
 
 ## Requirements
 
 - Python 3.9+
-- CUDA-capable GPU (recommended)
+- CUDA-capable GPU (recommended, 10-15 min training vs 2+ hours on CPU)
 - 8GB+ RAM
-- 2GB+ storage for data and checkpoints
+- 2GB+ storage
 
-## License
+## Technology Stack
 
-MIT License - See [LICENSE](LICENSE) file for details
+- **Core:** NumPy, Pandas, SciPy
+- **Visualisation:** Matplotlib, Seaborn, Plotly
+- **Traditional ML:** scikit-learn, XGBoost, LightGBM, CatBoost
+- **Deep Learning:** PyTorch, PyTorch Lightning, PyTorch Forecasting
 
 ## Getting Help
 
-1. **Getting Started**: Read [Getting Started Guide](docs/GETTING_STARTED.md)
-2. **Model Selection**: Review [Model Comparison](docs/MODEL_COMPARISON.md)
-3. **Training Issues**: Check [LSTM/GRU Guide](docs/LSTM_GUIDE.md)
-4. **Advanced Features**: See [Complete Documentation](docs/README.md)
+1. [Getting Started Guide](docs/GETTING_STARTED.md) - Installation and setup
+2. [Model Comparison](docs/MODEL_COMPARISON.md) - Choosing models
+3. [LSTM/GRU Guide](docs/LSTM_GUIDE.md) - Training and tuning
+4. [Complete Documentation](docs/README.md) - Full reference
+
+## Licence
+
+MIT Licence - See [LICENSE](LICENSE) for details
 
 ---
 
