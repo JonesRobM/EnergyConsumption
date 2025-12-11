@@ -45,6 +45,49 @@ python scripts/train_lstm.py --use_gru --mode train_test --epochs 50
 
 > Full analysis: [Model Comparison Guide](docs/MODEL_COMPARISON.md)
 
+## Project Evolution
+
+This project evolved through several stages, starting with fundamental analysis and progressively adopting more sophisticated models.
+
+### 1. Exploratory Data Analysis (EDA)
+
+The initial phase focused on understanding the dataset. We identified strong seasonal, weekly, and daily patterns in energy consumption.
+
+<p align="center">
+  <img src="figures/hourly_patterns.png" width="45%" alt="Hourly Patterns">
+  <img src="figures/daily_patterns.png" width="45%" alt="Daily Patterns">
+</p>
+<p align="center">
+  <em>Figure: Average energy consumption by hour of the day and day of the week, revealing clear cyclical demand.</em>
+</p>
+
+### 2. Baseline Modeling
+
+With a good understanding of the data, we established baseline performance using traditional machine learning models like LightGBM and XGBoost. These models performed well, confirming that engineered features like time lags and rolling averages were highly predictive.
+
+![Feature Importance](figures/feature_importance.png)
+<p align="center">
+  <em>Figure: Feature importance from a LightGBM model, highlighting the predictive power of temporal and lag features.</em>
+</p>
+
+The predictions from these shallow models were quite accurate and served as a strong benchmark for more advanced techniques.
+
+<p align="center">
+  <img src="figures/shallow_scatter.png" width="45%" alt="Shallow Model Scatter">
+  <img src="figures/shallow_predictions.png" width="45%" alt="Shallow Model Predictions">
+</p>
+<p align="center">
+  <em>Figure: Prediction accuracy of the baseline LightGBM model.</em>
+</p>
+
+### 3. Deep Learning Adoption
+
+To better capture long-term temporal dependencies, we moved to deep learning models. GRU and LSTM networks were implemented, which further improved forecasting accuracy by learning complex patterns directly from the time-series data. The GRU model, in particular, offered a great balance of performance and training efficiency.
+
+### 4. State-of-the-Art Models
+
+Finally, we integrated the Temporal Fusion Transformer (TFT), a state-of-the-art forecasting model. The TFT architecture is designed to handle multi-horizon forecasting with high accuracy, representing the cutting edge of what is possible with this dataset.
+
 ## Documentation
 
 **Guides:**
