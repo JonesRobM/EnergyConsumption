@@ -88,7 +88,7 @@ class TFTModel:
             static_categoricals=["series_id"],
             time_varying_known_categoricals=["hour", "dayofweek", "month"],
             time_varying_unknown_reals=["energy", "lag_24", "rolling_mean_24"],
-            target_normaliser=GroupNormalizer(
+            target_normalizer=GroupNormalizer(
                 groups=["series_id"], transformation="softplus"
             ),
             add_relative_time_idx=True,
