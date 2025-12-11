@@ -15,30 +15,16 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Train model (5 minutes)
-python scripts/train_lstm.py --use_gru --mode train_test --epochs 50
+python scripts/train_lstm.py --mode train_test --epochs 50
 ```
 
 **Outputs:** Checkpoint in `checkpoints/`, figures in `figures/`
-
-## Results
-
-**GRU Model (GPU-optimised, 336h lookback, 512 hidden, 3 layers):**
-
-![GRU Training History](figures/gru_training_history.png)
-
-![GRU Predictions](figures/gru_predictions.png)
-
-| Metric | Value |
-|--------|-------|
-| RMSE | 1927.85 MW |
-| MAE | 1448.76 MW |
-| MAPE | 4.79% |
 
 ## Model Comparison
 
 | Model | RMSE (MW) | MAPE (%) | Training Time | Use Case |
 |-------|-----------|----------|---------------|----------|
-| **GRU** | **1928** | **4.79** | 10-15 min | GPU available (recommended) |
+| GRU | 1928 | 4.79 | 10-15 min | GPU available |
 | LSTM | 1778 | 4.17 | 10-15 min | Alternative to GRU |
 | XGBoost/LightGBM | ~900 | ~2.5 | 2-5 min | CPU only, fast iterations |
 | TFT | ~700-1000 | ~2.0-3.0 | 30-60 min | Maximum accuracy |
@@ -103,23 +89,23 @@ Finally, we integrated the Temporal Fusion Transformer (TFT), a state-of-the-art
 
 ## Common Commands
 
-**Train default GRU:**
+**Train default model:**
 ```bash
-python scripts/train_lstm.py --use_gru --mode train_test --epochs 50
+python scripts/train_lstm.py --mode train_test --epochs 50
 ```
 
 **Train optimised model:**
 ```bash
 # PowerShell (Windows)
 python scripts/train_lstm.py `
-    --use_gru --mode train_test `
+    --mode train_test `
     --hidden_size 512 --num_layers 3 `
     --lookback 336 --batch_size 32 `
     --epochs 100
 
 # Bash (Linux/Mac)
 python scripts/train_lstm.py \
-    --use_gru --mode train_test \
+    --mode train_test \
     --hidden_size 512 --num_layers 3 \
     --lookback 336 --batch_size 32 \
     --epochs 100
@@ -129,7 +115,7 @@ python scripts/train_lstm.py \
 ```bash
 python scripts/train_lstm.py --mode test \
     --checkpoint_path checkpoints/lstm_best_PJME_MW.pt \
-    --use_gru --hidden_size 512 --num_layers 3 --lookback 336
+    --hidden_size 512 --num_layers 3 --lookback 336
 ```
 
 **Generate visualisations:**
@@ -137,9 +123,25 @@ python scripts/train_lstm.py --mode test \
 python scripts/generate_figures.py
 ```
 
-## Key Design Decisions
 
-### GRU Architecture
+## GRU Model Details
+
+**GRU Model (GPU-optimised, 336h lookback, 512 hidden, 3 layers):**
+
+![GRU Training History](figures/gru_training_history.png)
+
+![GRU Predictions](figures/gru_predictions.png)
+
+| Metric | Value |
+|--------|-------|
+| RMSE | 1927.85 MW |
+| MAE | 1448.76 MW |
+| MAPE | 4.79% |
+
+
+<br>
+
+## GRU Architecture
 
 **Why GRU over LSTM:**
 - 15-20% faster training (simpler architecture)
@@ -153,6 +155,8 @@ python scripts/generate_figures.py
 - **Layers:** 3 for hierarchical feature extraction
 - **Batch size:** 32 for better generalisation (noisier gradients)
 - **Dropout:** 0.4 to prevent overfitting
+
+## Key Design Decisions
 
 ### Feature Engineering
 
@@ -213,3 +217,5 @@ MIT Licence - See [LICENSE](LICENSE) for details
 [Model Comparison](docs/MODEL_COMPARISON.md) |
 [LSTM Guide](docs/LSTM_GUIDE.md) |
 [Full Docs](docs/README.md)
+
+
